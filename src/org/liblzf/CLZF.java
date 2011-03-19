@@ -36,10 +36,9 @@
  * of this file under either the BSD or the GPL.
  */
 
-using System;
+// ported from C# to Java
 
-namespace LZF.NET
-{
+package org.liblzf;
 	
 	/// <summary>
 	/// Summary description for CLZF.
@@ -47,7 +46,8 @@ namespace LZF.NET
 	public class CLZF
 	{
 		// CRC32 data & function
-		UInt32 []crc_32_tab = new UInt32[256]
+		/*
+		static int []crc_32_tab = new int[]
 		{
 			0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419,
 			0x706af48f, 0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4,
@@ -103,18 +103,18 @@ namespace LZF.NET
 			0x2d02ef8d
 		};
 
-		public UInt32 crc32(UInt32 OldCRC,byte NewData) 
+		public int crc32(int OldCRC,byte NewData) 
 		{
 			return crc_32_tab[(OldCRC & 0xff) ^ NewData] ^ (OldCRC >> 8);
 		}
-
+		*/
 
 		/// <summary>
 		/// LZF Compressor
 		/// </summary>
 
-		UInt32 HLOG=14;
-		UInt32 HSIZE=(1<<14);
+		static int HLOG=14;
+		static int HSIZE=(1<<14);
 
 		/*
 		* don't play with this unless you benchmark!
@@ -122,21 +122,21 @@ namespace LZF.NET
 		* the hashing function might seem strange, just believe me
 		* it works ;)
 		*/
-		UInt32 MAX_LIT=(1 <<  5);
-		UInt32 MAX_OFF=(1 << 13);
-		UInt32 MAX_REF=((1 <<  8) + (1 << 3));
+		static int MAX_LIT=(1 <<  5);
+		static int MAX_OFF=(1 << 13);
+		static int MAX_REF=((1 <<  8) + (1 << 3));
 
-		UInt32 FRST(byte[] Array,UInt32 ptr) 
+		static int FRST(byte[] Array,int ptr) 
 		{
-			return (UInt32)(((Array[ptr]) << 8) | Array[ptr+1]);
+			return (int)((((Array[ptr]) << 8) & 0xff00) | (Array[ptr+1] & 0xff));
 		}
 
-		UInt32 NEXT(UInt32 v,byte[] Array,UInt32 ptr)
+		static int NEXT(int v,byte[] Array,int ptr)
 		{
-			return ((v) << 8) | Array[ptr+2];
+			return ((v) << 8) | (Array[ptr+2] & 0xff);
 		}
 
-		UInt32 IDX(UInt32 h) 
+		static int IDX(int h) 
 		{
                 	return ((((h ^ (h << 5)) >> (int) (3*8 - HLOG)) - h*5) & (HSIZE - 1));
 		}
@@ -150,24 +150,24 @@ namespace LZF.NET
 		*
 		*/
 
-		public int lzf_compress (byte[] in_data, int in_len,byte[] out_data, int out_len)
+		public static int lzf_compress (byte[] in_data, int in_len,byte[] out_data, int out_len)
 		{
 			int c;
-			long []htab=new long[1<<14];
+			int []htab=new int[1<<14];
 			for (c=0;c<1<<14;c++)
 			{
 				htab[c]=0;
 			}
 
-			long hslot;
-			UInt32 iidx = 0;
-			UInt32 oidx = 0;
+			int hslot;
+			int iidx = 0;
+			int oidx = 0;
 			//byte *in_end  = ip + in_len;
 			//byte *out_end = op + out_len;
-			long reference;
+			int reference;
 
-			UInt32 hval = FRST (in_data,iidx);
-			long off;
+			int hval = FRST (in_data,iidx);
+			int off;
 			int lit = 0;
 
 			for (;;)
@@ -177,7 +177,7 @@ namespace LZF.NET
 					hval = NEXT (hval, in_data,iidx);
 					hslot = IDX (hval);
 					reference = htab[hslot]; 
-					htab[hslot] = (long)iidx;
+					htab[hslot] = (int)iidx;
 
 					if ((off = iidx - reference - 1) < MAX_OFF 
 						&& iidx + 4 < in_len 
@@ -188,8 +188,8 @@ namespace LZF.NET
 						)
 						{
 						/* match found at *reference++ */
-						UInt32 len = 2;
-						UInt32 maxlen = (UInt32)in_len - iidx - len;
+						int len = 2;
+						int maxlen = in_len - iidx - len;
 						maxlen = maxlen > MAX_REF ? MAX_REF : maxlen;
 
 						if (oidx + lit + 1 + 3 >= out_len)
@@ -274,14 +274,14 @@ namespace LZF.NET
 		/// <summary>
 		/// LZF Decompressor
 		/// </summary>
-		public int lzf_decompress ( byte[] in_data, int in_len, byte[] out_data, int out_len)
+		public static int lzf_decompress ( byte[] in_data, int in_len, byte[] out_data, int out_len)
 		{
-			UInt32 iidx=0;
-			UInt32 oidx=0;
+			int iidx=0;
+			int oidx=0;
 
 			do
 				{
-				UInt32 ctrl = in_data[iidx++];
+				int ctrl = in_data[iidx++] & 0xff;
 
 				if (ctrl < (1 << 5)) /* literal run */
 					{
@@ -299,14 +299,14 @@ namespace LZF.NET
 					}
 				else /* back reference */
 					{
-					UInt32 len = ctrl >> 5;
+					int len = ctrl >> 5;
 
 					int reference = (int)(oidx - ((ctrl & 0x1f) << 8) - 1);
 
 					if (len == 7)
-						len += in_data[iidx++];
+						len += in_data[iidx++] & 0xff;
 			          
-					reference -= in_data[iidx++];
+					reference -= in_data[iidx++] & 0xff;
 
 					if (oidx + len + 2 > out_len)
 						{
@@ -340,5 +340,5 @@ namespace LZF.NET
 			//
 		}
 	}
-}
+
 
